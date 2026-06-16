@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}{{ contact.name }} | Client Profile | AURA CRM{% endblock %}
+
+{% block page_title %}
+<div class="breadcrumb-header">
+    <a href="/contacts" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+        Clients Directory
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="detail-view-container">
+    
+    <!-- Profile header widget -->
+    <div class="contact-profile-header glass-panel">
+        <div class="profile-left">
+            <div class="contact-avatar large-avatar" id="profile-avatar-circle">
+                <!-- Initials -->
+            </div>
+            <div class="profile-info">
+                <h2 id="profile-name">{{ contact.name }}</h2>
+                <span id="profile-email">{{ contact.email }}</span>
+            </div>
+        </div>
+        
+        <div class="profile-actions" style="display: flex; align-items: center; gap: 1rem;">
+            <div id="profile-badge-container">
+                <!-- Health Badge -->
+            </div>
+            <a href="/contacts/{{ contact.id }}/chat" class="btn btn-secondary" style="border-color: var(--color-primary); color: var(--color-primary); background: rgba(99, 102, 241, 0.05);">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Launch Support Chat
+            </a>
+            {% if session.get('role') == 'admin' %}
+            <button id="delete-contact-btn" class="btn" style="background: rgba(244, 63, 94, 0.1); color: var(--color-atrisk); border: 1px solid var(--color-atrisk-border); display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: var(--transition-smooth);">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="16" height="16">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+                Delete Client
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if contact.status == 'At Risk' %}
+    <div class="outreach-alert-banner" style="background: var(--color-atrisk-bg); border: 1px solid var(--color-atrisk-border); border-radius: 12px; padding: 1rem 1.5rem; margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; animation: fadeIn 0.4s ease;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; text-align: left;">
+            <span style="font-size: 1.5rem;">🤖</span>
+            <div>
+                <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--color-atrisk);">Chatbot Proactive Outreach Triggered</h4>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.15rem;">The AI assistant has reached out to {{ contact.name }} to resolve their issues and request updated reviews.</p>
+            </div>
+        </div>
+        <a href="/contacts/{{ contact.id }}/chat" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.5rem 1rem; background: linear-gradient(135deg, var(--color-atrisk) 0%, var(--color-primary) 100%); border: none;">
+            Open Support Portal
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Health index gauge widget -->
+    <div class="relationship-gauge-card" style="margin: 1.25rem 0 0.5rem 0;">
+        <div class="gauge-info">
+            <span class="gauge-title">Client Health Gauge</span>
+            <div class="gauge-score-display">
+                <span class="gauge-score-val" id="gauge-score-val">50.0</span>
+                <span class="gauge-score-label">/ 100 Index</span>
+            </div>
+            <span class="gauge-trend" id="gauge-trend">Trend: Stable</span>
+        </div>
+        <div class="gauge-bar-wrapper">
+            <div class="gauge-track">
+                <div class="gauge-fill" id="gauge-fill-bar" style="width: 50%;"></div>
+            </div>
+            <div class="gauge-labels">
+                <span>At Risk</span>
+                <span>Neutral</span>
+                <span>Happy</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main columns: forms and feed timeline -->
+    <div class="profile-columns-layout">
+        <!-- Log Form -->
+        <div class="interaction-form-section glass-panel">
+            <h3 class="section-title">Log New Interaction</h3>
+            
+            <form id="note-form" class="modal-form">
+                <div class="form-group">
+                    <label for="note-text-input">Note / Client Feedback</label>
+                    <textarea id="note-text-input" placeholder="Type customer response or notes here... (e.g. 'Customer is thrilled with the new upgrade and requested pricing details.')" required></textarea>
+                </div>
+                
+                <div class="sentiment-helper">
+                    <p><strong>💡 Sentiment Engine Info:</strong> Note text is run through an ML Sentiment Analysis model. Status updates to <strong>At Risk</strong> if notes score highly negative ($< -0.15$), or if chronic negativity is detected.</p>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="btn-submit-note">
+                    <span id="btn-submit-note-text">Analyze & Log Note</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- History Timeline -->
+        <div class="timeline-section glass-panel">
+            <h3 class="section-title">Client History & Sentiment Timeline</h3>
+            
+            <div class="timeline-filters" id="timeline-filters" style="margin-top: 0.5rem;">
+                <button type="button" class="filter-pill active" data-filter="all">All Logs</button>
+                <button type="button" class="filter-pill" data-filter="happy">🟢 Positive</button>
+                <button type="button" class="filter-pill" data-filter="neutral">😐 Neutral</button>
+                <button type="button" class="filter-pill" data-filter="atrisk">🔴 Negative</button>
+            </div>
+            
+            <div class="timeline-list" id="timeline-list" role="log">
+                <!-- Dynamic Notes Timeline Items -->
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const contactId = {{ contact.id }};
+    
+    const state = {
+        contact: {
+            id: contactId,
+            name: "{{ contact.name }}",
+            email: "{{ contact.email }}",
+            status: "{{ contact.status }}"
+        },
+        currentNotes: [],
+        activeFilter: 'all'
+    };
+
+    const DOM = {
+        profileAvatar: document.getElementById('profile-avatar-circle'),
+        profileBadge: document.getElementById('profile-badge-container'),
+        gaugeScoreVal: document.getElementById('gauge-score-val'),
+        gaugeTrend: document.getElementById('gauge-trend'),
+        gaugeFillBar: document.getElementById('gauge-fill-bar'),
+        
+        noteForm: document.getElementById('note-form'),
+        noteTextInput: document.getElementById('note-text-input'),
+        btnSubmitNote: document.getElementById('btn-submit-note'),
+        btnSubmitNoteText: document.getElementById('btn-submit-note-text'),
+        timelineFilters: document.getElementById('timeline-filters'),
+        timelineList: document.getElementById('timeline-list')
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderProfileHeader();
+        fetchNotes();
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        const deleteBtn = document.getElementById('delete-contact-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to delete this client and all their historical logs? This action is irreversible.')) {
+                    try {
+                        const response = await fetch(`/api/contacts/${contactId}`, {
+                            method: 'DELETE'
+                        });
+                        const data = await response.json();
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Failed to delete client');
+                        }
+                        showToast('Client deleted successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/contacts';
+                        }, 1000);
+                    } catch (err) {
+                        showToast(err.message, 'error');
+                    }
+                }
+            });
+        }
+
+        DOM.noteForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const note_text = DOM.noteTextInput.value.trim();
+            setSubmitNoteLoading(true);
+            
+            try {
+                const response = await fetch(`/api/contacts/${contactId}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note_text })
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to add note');
+                }
+                
+                DOM.noteTextInput.value = '';
+                showToast('Interaction logged & sentiment analyzed!', 'success');
+                
+                // Show notification for sentiment details
+                const sentimentVal = data.note.sentiment_score.toFixed(2);
+                let sentimentCategory = 'Neutral';
+                if (data.note.sentiment_score >= 0.15) sentimentCategory = 'Happy';
+                else if (data.note.sentiment_score <= -0.15) sentimentCategory = 'At Risk';
+                
+                showToast(`Sentiment classified: ${sentimentCategory} (${sentimentVal})`, 'neutral');
+                
+                // Update local contact state and render header
+                state.contact = data.contact;
+                renderProfileHeader();
+                
+                // Re-fetch notes
+                await fetchNotes();
+                
+                // Refresh global header stats
+                if (typeof fetchGlobalStats === 'function') {
+                    fetchGlobalStats();
+                }
+                
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                setSubmitNoteLoading(false);
+            }
+        });
+
+        DOM.timelineFilters.addEventListener('click', (e) => {
+            const button = e.target.closest('.filter-pill');
+            if (!button) return;
+            
+            DOM.timelineFilters.querySelectorAll('.filter-pill').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            state.activeFilter = button.dataset.filter;
+            applyNotesFilter();
+        });
+    }
+
+    async function fetchNotes() {
+        try {
+            const response = await fetch(`/api/contacts/${contactId}/notes?t=${Date.now()}`);
+            const notes = await response.json();
+            state.currentNotes = notes;
+            applyNotesFilter();
+        } catch (err) {
+            console.error(err);
+            DOM.timelineList.innerHTML = '<div class="error-text">Failed to fetch client history.</div>';
+        }
+    }
+
+    function renderProfileHeader() {
+        const name = state.contact.name;
+        const status = state.contact.status;
+        
+        // Render Avatar Initials
+        const initials = getInitials(name);
+        DOM.profileAvatar.textContent = initials;
+        DOM.profileAvatar.style.background = getAvatarGradient(status);
+        
+        // Render Status Badge
+        let badgeClass = 'badge-neutral';
+        if (status === 'Happy') badgeClass = 'badge-happy';
+        else if (status === 'At Risk') badgeClass = 'badge-atrisk';
+        
+        DOM.profileBadge.innerHTML = `
+            <span class="badge ${badgeClass}" style="font-size: 0.85rem; padding: 0.4rem 0.85rem;">
+                Health Status: ${status}
+            </span>
+        `;
+    }
+
+    function applyNotesFilter() {
+        const notes = state.currentNotes;
+        let filtered = [];
+        
+        if (state.activeFilter === 'all') {
+            filtered = notes;
+        } else if (state.activeFilter === 'happy') {
+            filtered = notes.filter(n => n.sentiment_score >= 0.15);
+        } else if (state.activeFilter === 'neutral') {
+            filtered = notes.filter(n => n.sentiment_score > -0.15 && n.sentiment_score < 0.15);
+        } else if (state.activeFilter === 'atrisk') {
+            filtered = notes.filter(n => n.sentiment_score <= -0.15);
+        }
+        
+        // 1. Render relationship gauge card
+        calculateAndRenderRelationshipGauge(notes);
+        
+        // 2. Render timeline list
+        renderNotesTimeline(filtered);
+    }
+
+    function calculateAndRenderRelationshipGauge(notes) {
+        if (notes.length === 0) {
+            DOM.gaugeScoreVal.textContent = '50.0';
+            DOM.gaugeTrend.textContent = 'Trend: No History';
+            DOM.gaugeTrend.style.color = 'var(--text-muted)';
+            DOM.gaugeFillBar.style.width = '50%';
+            return;
+        }
+        
+        const avgSentiment = notes.reduce((sum, n) => sum + n.sentiment_score, 0) / notes.length;
+        const scaleScoreVal = ((avgSentiment + 1) / 2) * 100;
+        
+        DOM.gaugeScoreVal.textContent = scaleScoreVal.toFixed(1);
+        DOM.gaugeFillBar.style.width = `${scaleScoreVal}%`;
+        
+        let trendText = 'Stable';
+        let trendColor = 'var(--text-secondary)';
+        if (notes.length >= 2) {
+            const latest = notes[0].sentiment_score;
+            const previous = notes[1].sentiment_score;
+            const diff = latest - previous;
+            
+            if (diff > 0.15) {
+                trendText = 'Improving ▲';
+                trendColor = 'var(--color-happy)';
+            } else if (diff < -0.15) {
+                trendText = 'Declining ▼';
+                trendColor = 'var(--color-atrisk)';
+            }
+        }
+        
+        DOM.gaugeTrend.textContent = `Trend: ${trendText}`;
+        DOM.gaugeTrend.style.color = trendColor;
+    }
+
+    function renderNotesTimeline(notesList) {
+        DOM.timelineList.innerHTML = '';
+        
+        if (notesList.length === 0) {
+            DOM.timelineList.innerHTML = `
+                <div style="padding: 2.5rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; width: 100%;">
+                    📅 No matching interactions logged.
+                </div>
+            `;
+            return;
+        }
+        
+        notesList.forEach((note, idx) => {
+            const item = document.createElement('div');
+            
+            let statusClass = 'status-neutral';
+            let emoji = '😐';
+            if (note.sentiment_score >= 0.15) {
+                statusClass = 'status-happy';
+                emoji = '🟢';
+            } else if (note.sentiment_score <= -0.15) {
+                statusClass = 'status-atrisk';
+                emoji = '🔴';
+            }
+            
+            item.className = `timeline-item ${statusClass}`;
+            item.style.animationDelay = `${idx * 0.05}s`;
+            
+            const dateObj = new Date(note.date.replace(' ', 'T') + 'Z');
+            const formattedDate = dateObj.toLocaleDateString(undefined, { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const pct = ((note.sentiment_score + 1) / 2) * 100;
+            
+            item.innerHTML = `
+                <div class="timeline-meta">
+                    <span class="timeline-date">${formattedDate}</span>
+                    <div class="timeline-sentiment-info">
+                        <span class="sentiment-score-num">${note.sentiment_score >= 0 ? '+' : ''}${note.sentiment_score.toFixed(2)}</span>
+                        <span>${emoji}</span>
+                    </div>
+                </div>
+                <p class="timeline-text">${escapeHTML(note.note_text)}</p>
+                <div class="sentiment-bar-container">
+                    <div class="sentiment-bar-indicator" style="width: ${pct}%;"></div>
+                </div>
+            `;
+            
+            DOM.timelineList.appendChild(item);
+        });
+    }
+
+    function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return parts[0].substring(0, 2).toUpperCase();
+    }
+    
+    function getAvatarGradient(status) {
+        if (status === 'Happy') return 'linear-gradient(135deg, #10b981, #047857)';
+        if (status === 'At Risk') return 'linear-gradient(135deg, #f43f5e, #be123c)';
+        return 'linear-gradient(135deg, #6366f1, #4338ca)';
+    }
+
+    function setSubmitNoteLoading(isLoading) {
+        if (isLoading) {
+            DOM.btnSubmitNote.disabled = true;
+            DOM.btnSubmitNoteText.textContent = 'Analyzing Sentiment...';
+        } else {
+            DOM.btnSubmitNote.disabled = false;
+            DOM.btnSubmitNoteText.textContent = 'Analyze & Log Note';
+        }
+    }
+</script>
+{% endblock %}

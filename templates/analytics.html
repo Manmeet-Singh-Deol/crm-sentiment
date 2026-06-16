@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Sentiment Insights | AURA CRM{% endblock %}
+{% block page_title %}Sentiment Insights{% endblock %}
+
+{% block content %}
+<div class="analytics-layout">
+    
+    <!-- Top metrics grid -->
+    <div class="analytics-metrics-grid">
+        <!-- Average Sentiment Card -->
+        <div class="metric-card glass-panel">
+            <span class="metric-title">Overall Sentiment Index</span>
+            <div class="metric-value-block">
+                <span class="metric-value" id="avg-sentiment-val">0.00</span>
+                <span class="metric-sub">Average Score</span>
+            </div>
+            <div class="sentiment-bar-container" style="margin-top: 1rem;">
+                <div class="sentiment-bar-indicator" id="avg-sentiment-bar" style="width: 50%;"></div>
+            </div>
+            <div class="gauge-labels" style="margin-top: 0.25rem;">
+                <span>Negative (-1.0)</span>
+                <span>Neutral (0.0)</span>
+                <span>Positive (+1.0)</span>
+            </div>
+        </div>
+
+        <!-- Health Distribution Card -->
+        <div class="metric-card glass-panel">
+            <span class="metric-title">Account Health Distribution</span>
+            <div class="distribution-bars-container" id="distribution-bars" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                <div class="loading-spinner">Loading breakdown...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Warnings Feed Section -->
+    <div class="analytics-warnings-section glass-panel" style="margin-top: 1.5rem;">
+        <h3 class="section-title text-risk" style="color: var(--color-atrisk); display: flex; align-items: center; gap: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="20" height="20">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            Active Account Sentiment Alerts
+        </h3>
+        <p class="section-subtitle">Real-time alerts triggered by negative customer logs requiring supervisor review.</p>
+        
+        <div class="warnings-list" id="warnings-list" style="margin-top: 1.25rem;">
+            <div class="loading-spinner">Loading alerts...</div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAnalyticsData();
+    });
+
+    async function loadAnalyticsData() {
+        await Promise.all([
+            fetchStatsAndCalculateIndex(),
+            fetchAlerts()
+        ]);
+    }
+
+    async function fetchStatsAndCalculateIndex() {
+        try {
+            // 1. Fetch stats
+            const responseStats = await fetch(`/api/stats?t=${Date.now()}`);
+            const stats = await responseStats.json();
+            
+            // 2. Fetch contacts
+            const responseContacts = await fetch(`/api/contacts?t=${Date.now()}`);
+            const contacts = await responseContacts.json();
+            
+            // Calculate distribution percentages
+            const total = stats.total || 1;
+            const happyPct = ((stats.happy / total) * 100).toFixed(0);
+            const neutralPct = ((stats.neutral / total) * 100).toFixed(0);
+            const atRiskPct = ((stats.at_risk / total) * 100).toFixed(0);
+            
+            const distributionDiv = document.getElementById('distribution-bars');
+            distributionDiv.innerHTML = `
+                <!-- Happy row -->
+                <div class="dist-row">
+                    <div class="dist-labels">
+                        <span class="dist-name">🟢 Happy Clients</span>
+                        <span class="dist-value-text">${stats.happy} (${happyPct}%)</span>
+                    </div>
+                    <div class="dist-track">
+                        <div class="dist-fill" style="width: ${happyPct}%; background: var(--color-happy);"></div>
+                    </div>
+                </div>
+                <!-- Neutral row -->
+                <div class="dist-row">
+                    <div class="dist-labels">
+                        <span class="dist-name">😐 Neutral Clients</span>
+                        <span class="dist-value-text">${stats.neutral} (${neutralPct}%)</span>
+                    </div>
+                    <div class="dist-track">
+                        <div class="dist-fill" style="width: ${neutralPct}%; background: var(--color-neutral);"></div>
+                    </div>
+                </div>
+                <!-- At Risk row -->
+                <div class="dist-row">
+                    <div class="dist-labels">
+                        <span class="dist-name" style="color: var(--color-atrisk);">🔴 At Risk Clients</span>
+                        <span class="dist-value-text" style="color: var(--color-atrisk); font-weight: 700;">${stats.at_risk} (${atRiskPct}%)</span>
+                    </div>
+                    <div class="dist-track">
+                        <div class="dist-fill" style="width: ${atRiskPct}%; background: var(--color-atrisk); box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);"></div>
+                    </div>
+                </div>
+            `;
+            
+            // Calculate Average Sentiment Score across all contacts that have last note sentiment
+            const contactsWithSentiment = contacts.filter(c => c.last_note_sentiment !== null);
+            
+            let avgSentiment = 0.0;
+            if (contactsWithSentiment.length > 0) {
+                const totalSentiment = contactsWithSentiment.reduce((sum, c) => sum + c.last_note_sentiment, 0);
+                avgSentiment = totalSentiment / contactsWithSentiment.length;
+            }
+            
+            const scalePct = ((avgSentiment + 1) / 2) * 100;
+            
+            document.getElementById('avg-sentiment-val').textContent = (avgSentiment >= 0 ? '+' : '') + avgSentiment.toFixed(2);
+            document.getElementById('avg-sentiment-bar').style.width = `${scalePct}%`;
+            
+            // Set average sentiment bar color based on index
+            const bar = document.getElementById('avg-sentiment-bar');
+            if (avgSentiment >= 0.15) {
+                bar.style.backgroundColor = 'var(--color-happy)';
+            } else if (avgSentiment <= -0.15) {
+                bar.style.backgroundColor = 'var(--color-atrisk)';
+            } else {
+                bar.style.backgroundColor = 'var(--color-neutral)';
+            }
+            
+        } catch (err) {
+            console.error(err);
+            document.getElementById('distribution-bars').innerHTML = '<div class="error-text">Failed to calculate health analytics.</div>';
+        }
+    }
+
+    async function fetchAlerts() {
+        try {
+            const response = await fetch(`/api/notes/recent?limit=25&t=${Date.now()}`);
+            const notes = await response.json();
+            
+            const alertsList = document.getElementById('warnings-list');
+            alertsList.innerHTML = '';
+            
+            // Filter only negative sentiment logs
+            const warnings = notes.filter(n => n.sentiment_score <= -0.15);
+            
+            if (warnings.length === 0) {
+                alertsList.innerHTML = `
+                    <div class="success-alerts-container" style="padding: 2.5rem; text-align: center; color: var(--text-secondary);">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="40" height="40" style="color: var(--color-happy); margin-bottom: 0.75rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <h4>Zero Sentiment Alerts</h4>
+                        <p>No negative feedback logs detected in recent customer interactions.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            warnings.forEach((warn, idx) => {
+                const item = document.createElement('div');
+                item.className = 'warning-alert-item';
+                item.style.animationDelay = `${idx * 0.05}s`;
+                
+                const dateObj = new Date(warn.date.replace(' ', 'T') + 'Z');
+                const formattedDate = dateObj.toLocaleDateString(undefined, { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                item.innerHTML = `
+                    <div class="alert-item-header">
+                        <div class="alert-meta-left">
+                            <span class="alert-time">${formattedDate}</span>
+                            <a href="/contacts/${warn.contact_id}" class="alert-contact-link">${escapeHTML(warn.contact_name)}</a>
+                        </div>
+                        <span class="badge badge-atrisk" style="padding: 0.15rem 0.4rem; font-size: 0.6rem;">Score: ${warn.sentiment_score.toFixed(2)}</span>
+                    </div>
+                    <p class="alert-note-text">${escapeHTML(warn.note_text)}</p>
+                `;
+                alertsList.appendChild(item);
+            });
+            
+        } catch (err) {
+            console.error(err);
+            document.getElementById('warnings-list').innerHTML = '<div class="error-text">Failed to load sentiment alerts.</div>';
+        }
+    }
+</script>
+{% endblock %}

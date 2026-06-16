@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Support Chat | {{ contact.name }}{% endblock %}
+
+{% block page_title %}
+<div class="breadcrumb-header">
+    <a href="/contacts/{{ contact.id }}" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+        Return to Client Profile
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="chat-portal-layout">
+    
+    <!-- Left Section: Chat Widget Window -->
+    <div class="chat-widget glass-panel">
+        <div class="chat-widget-header">
+            <div class="bot-profile">
+                <div class="bot-avatar">🤖</div>
+                <div class="bot-details">
+                    <h4>AURA Support Agent</h4>
+                    <span class="online-indicator">Active Now</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Messages Area -->
+        <div class="chat-messages-container" id="chat-messages">
+            <!-- Initial welcome message from bot -->
+            <div class="chat-bubble bubble-bot">
+                {% if personalized_greeting %}
+                    <div>{{ personalized_greeting | safe }}</div>
+                {% else %}
+                    <p>👋 <strong>AURA Support Assistant</strong>:<br>
+                    I am here to help you resolve technical issues! Please tell me if you are experiencing: <strong>database slowness</strong>, <strong>API 401 unauthorized errors</strong>, <strong>billing/invoices issues</strong>, or <strong>application crashes</strong>.</p>
+                {% endif %}
+                <span class="bubble-time">Just now</span>
+            </div>
+        </div>
+        
+        <!-- Message Input Footer -->
+        <div class="chat-footer">
+            <form id="chat-input-form" class="chat-input-row">
+                <input type="text" id="chat-msg-input" placeholder="Type a message describing your issue..." required autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-icon" id="btn-send-msg" aria-label="Send message">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Right Section: Account Details & Dynamic Feedback Card -->
+    <div class="chat-sidebar-layout">
+        <!-- Account Info Card -->
+        <div class="glass-panel sidebar-card">
+            <h3 class="card-title">Client Account Info</h3>
+            <div class="info-item" style="margin-top: 1rem;">
+                <span class="info-label">Client Name</span>
+                <span class="info-value">{{ contact.name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Email Address</span>
+                <span class="info-value">{{ contact.email }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Current Health Status</span>
+                <div id="sidebar-badge-container">
+                    <!-- Dynamic Status Badge -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Feedback / Review Card (Locked by default) -->
+        <div class="glass-panel sidebar-card locked-card" id="feedback-review-card">
+            <div class="locked-overlay" id="feedback-locked-overlay">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="28" height="28" style="color: var(--text-muted); margin-bottom: 0.5rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <span>Complete support chat first</span>
+            </div>
+            
+            <h3 class="card-title" style="color: var(--color-happy);">Update Your Review</h3>
+            <p class="card-subtitle">Leave your updated feedback below once the chatbot has helped you resolve your problem.</p>
+            
+            <form id="feedback-review-form" class="modal-form" style="margin-top: 1rem;">
+                <div class="form-group">
+                    <label for="review-text-input">Your Review / Review Note</label>
+                    <textarea id="review-text-input" placeholder="e.g. 'Support chatbot was great! Solved my latency issue immediately. Recommending this product!'"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;" id="btn-submit-review">
+                    Submit Updated Review
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const contactId = {{ contact.id }};
+    const clientName = "{{ contact.name }}";
+    const clientStatus = "{{ contact.status }}";
+    
+    const DOM = {
+        chatMessages: document.getElementById('chat-messages'),
+        chatForm: document.getElementById('chat-input-form'),
+        chatInput: document.getElementById('chat-msg-input'),
+        btnSendMsg: document.getElementById('btn-send-msg'),
+        sidebarBadge: document.getElementById('sidebar-badge-container'),
+        feedbackCard: document.getElementById('feedback-review-card'),
+        lockedOverlay: document.getElementById('feedback-locked-overlay'),
+        reviewForm: document.getElementById('feedback-review-form'),
+        reviewInput: document.getElementById('review-text-input'),
+        btnSubmitReview: document.getElementById('btn-submit-review')
+    };
+
+    // Words indicating resolution in chat
+    const resolutionKeywords = ['work', 'fix', 'solved', 'resolved', 'thanks', 'thank you', 'helped', 'great', 'happy'];
+
+    // Connect to Socket.IO
+    const socket = io();
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderSidebarBadge(clientStatus);
+        setupChatEventListeners();
+        
+        // Emit join_chat event when client enters chat
+        socket.on('connect', () => {
+            socket.emit('join_chat', {
+                contact_id: contactId,
+                contact_name: clientName
+            });
+        });
+    });
+
+    // Emit leave_chat when client leaves the page
+    window.addEventListener('beforeunload', () => {
+        socket.emit('leave_chat', {
+            contact_id: contactId
+        });
+    });
+
+    function setupChatEventListeners() {
+        DOM.chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = DOM.chatInput.value.trim();
+            if (!message) return;
+            
+            // Render client bubble
+            renderMessage(message, 'client');
+            DOM.chatInput.value = '';
+            
+            // Show typing indicator
+            const typingId = renderTypingIndicator();
+            
+            try {
+                // Post to bot API
+                const response = await fetch(`/api/contacts/${contactId}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await response.json();
+                
+                // Remove typing indicator after delay for natural feel
+                setTimeout(() => {
+                    removeTypingIndicator(typingId);
+                    
+                    if (response.ok) {
+                        renderMessage(data.reply, 'bot');
+                        
+                        // Check if backend chatbot engine determined we should unlock the review card
+                        if (data.unlock_review) {
+                            unlockFeedbackCard();
+                        }
+                    } else {
+                        renderMessage('Sorry, I encountered an error. Please try again.', 'bot');
+                    }
+                }, 800);
+                
+            } catch (err) {
+                console.error(err);
+                setTimeout(() => {
+                    removeTypingIndicator(typingId);
+                    renderMessage('Connection error. Could not contact the support agent.', 'bot');
+                }, 800);
+            }
+        });
+
+        // Review Submission Form
+        DOM.reviewForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const note_text = DOM.reviewInput.value.trim();
+            if (!note_text) return;
+            
+            DOM.btnSubmitReview.disabled = true;
+            DOM.btnSubmitReview.textContent = 'Submitting...';
+            
+            try {
+                // Post to standard Notes API
+                const response = await fetch(`/api/contacts/${contactId}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note_text })
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to submit review');
+                }
+                
+                showToast('Review submitted successfully!', 'success');
+                showToast(`New Account Status: ${data.contact.status}`, 'success');
+                
+                // Redirect back to profile page after delay
+                setTimeout(() => {
+                    window.location.href = `/contacts/${contactId}`;
+                }, 1500);
+                
+            } catch (err) {
+                showToast(err.message, 'error');
+                DOM.btnSubmitReview.disabled = false;
+                DOM.btnSubmitReview.textContent = 'Submit Updated Review';
+            }
+        });
+    }
+
+    function renderMessage(text, sender) {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble bubble-${sender}`;
+        
+        // E.g., Bot replies contain HTML, Client replies are text
+        if (sender === 'bot') {
+            bubble.innerHTML = text;
+        } else {
+            bubble.textContent = text;
+        }
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'bubble-time';
+        timeSpan.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        bubble.appendChild(timeSpan);
+        
+        DOM.chatMessages.appendChild(bubble);
+        scrollToBottom();
+    }
+
+    function renderTypingIndicator() {
+        const indicator = document.createElement('div');
+        const id = 'typing-' + Date.now();
+        indicator.id = id;
+        indicator.className = 'chat-bubble bubble-bot typing-indicator-bubble';
+        indicator.innerHTML = `
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        DOM.chatMessages.appendChild(indicator);
+        scrollToBottom();
+        return id;
+    }
+
+    function removeTypingIndicator(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    function unlockFeedbackCard() {
+        if (!DOM.feedbackCard.classList.contains('locked-card')) return; // already unlocked
+        
+        // Unlock visual card after a short delay for smooth transitions
+        setTimeout(() => {
+            DOM.feedbackCard.classList.remove('locked-card');
+            DOM.lockedOverlay.style.opacity = '0';
+            setTimeout(() => {
+                DOM.lockedOverlay.remove();
+            }, 300);
+            
+            showToast('Review card unlocked! Please submit your feedback.', 'success');
+        }, 800);
+    }
+
+    function renderSidebarBadge(status) {
+        let badgeClass = 'badge-neutral';
+        if (status === 'Happy') badgeClass = 'badge-happy';
+        else if (status === 'At Risk') badgeClass = 'badge-atrisk';
+        
+        DOM.sidebarBadge.innerHTML = `
+            <span class="badge ${badgeClass}">${status}</span>
+        `;
+    }
+
+    function scrollToBottom() {
+        DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+    }
+</script>
+{% endblock %}

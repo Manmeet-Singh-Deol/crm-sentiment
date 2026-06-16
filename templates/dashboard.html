@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Overview | AURA CRM{% endblock %}
+{% block page_title %}Operational Overview{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    
+    <!-- Left Section: Critical Contacts -->
+    <section class="dashboard-section glass-panel">
+        <h3 class="section-title">Critical Attention Required</h3>
+        <p class="section-subtitle">Accounts flagged as "At Risk" based on recent sentiment logs.</p>
+        
+        <div class="critical-contacts-list" id="critical-contacts">
+            <div class="loading-spinner">Loading client status...</div>
+        </div>
+    </section>
+
+    <!-- Right Section: Recent Interactions Feed -->
+    <section class="dashboard-section glass-panel">
+        <h3 class="section-title">Recent Customer Interactions</h3>
+        <p class="section-subtitle">Latest notes logged by employees across all accounts.</p>
+        
+        <div class="feed-timeline" id="recent-notes-feed">
+            <div class="loading-spinner">Loading recent feed...</div>
+        </div>
+    </section>
+    
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .animate-fade-in-down {
+        animation: fadeInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(0.96); opacity: 0.6; }
+    }
+    .live-chatting-badge {
+        background: rgba(16, 185, 129, 0.15) !important;
+        color: #10b981 !important;
+        border-color: rgba(16, 185, 129, 0.3) !important;
+        animation: pulse 2s infinite ease-in-out;
+        font-size: 0.6rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // State to track active chats in real-time
+    let activeChatIds = [];
+
+    // Connect to Socket.IO
+    const socket = io();
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardData();
+        setupSocketListeners();
+    });
+
+    async function loadDashboardData() {
+        await Promise.all([
+            fetchCriticalContacts(),
+            fetchRecentNotes()
+        ]);
+    }
+
+    function setupSocketListeners() {
+        // 1. Initial active chats listing on connect
+        socket.on('active_chats_list', (ids) => {
+            activeChatIds = ids;
+            updateLiveBadges();
+        });
+
+        // 2. Client joins support chat
+        socket.on('client_active_chat', (data) => {
+            if (!activeChatIds.includes(data.contact_id)) {
+                activeChatIds.push(data.contact_id);
+                showToast(`Client ${data.contact_name} has joined the support chat portal!`, 'success');
+                updateLiveBadges();
+            }
+        });
+
+        // 3. Client leaves support chat
+        socket.on('client_inactive_chat', (data) => {
+            activeChatIds = activeChatIds.filter(id => id !== data.contact_id);
+            updateLiveBadges();
+        });
+
+        // 4. Database note/sentiment changes
+        socket.on('db_update', (data) => {
+            // Toast alert of new note
+            showToast(`New feedback note added for ${data.contact.name}!`, 'primary');
+            
+            // Prepend note to recent feed dynamically
+            prependRecentNote(data.note, data.contact);
+            
+            // Refresh critical list
+            fetchCriticalContacts();
+            
+            // Update global stats counter cards in header
+            document.getElementById('global-stat-total').textContent = data.stats.total;
+            document.getElementById('global-stat-happy').textContent = data.stats.happy;
+            document.getElementById('global-stat-neutral').textContent = data.stats.neutral;
+            document.getElementById('global-stat-atrisk').textContent = data.stats.at_risk;
+            
+            const atRiskCard = document.getElementById('global-stat-atrisk-card');
+            if (data.stats.at_risk > 0) {
+                atRiskCard.classList.add('active-risk');
+            } else {
+                atRiskCard.classList.remove('active-risk');
+            }
+        });
+    }
+
+    function updateLiveBadges() {
+        // Redraw live badges for rendered critical contact cards
+        document.querySelectorAll('.critical-contact-card').forEach(card => {
+            const contactId = parseInt(card.dataset.contactId);
+            const badgeContainer = card.querySelector('.live-badge-container');
+            if (!badgeContainer) return;
+            
+            if (activeChatIds.includes(contactId)) {
+                if (!badgeContainer.querySelector('.live-chatting-badge')) {
+                    badgeContainer.innerHTML = '<span class="badge live-chatting-badge">● Live Chat</span>';
+                }
+            } else {
+                badgeContainer.innerHTML = '';
+            }
+        });
+    }
+
+    async function fetchCriticalContacts() {
+        try {
+            const response = await fetch(`/api/contacts?t=${Date.now()}`);
+            const contacts = await response.json();
+            
+            const criticalList = document.getElementById('critical-contacts');
+            criticalList.innerHTML = '';
+            
+            const atRisk = contacts.filter(c => c.status === 'At Risk');
+            
+            if (atRisk.length === 0) {
+                criticalList.innerHTML = `
+                    <div class="success-state-container">
+                        <div class="success-state-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            </svg>
+                        </div>
+                        <h4>All Clients Stable</h4>
+                        <p>No client accounts are currently flagged as At Risk. Keep up the great work!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            atRisk.forEach((contact, idx) => {
+                const item = document.createElement('a');
+                item.href = `/contacts/${contact.id}`;
+                item.className = 'critical-contact-card';
+                item.dataset.contactId = contact.id;
+                item.style.animationDelay = `${idx * 0.08}s`;
+                
+                const initials = getInitials(contact.name);
+                
+                let lastNoteSnippet = 'No interactions logged yet.';
+                if (contact.last_note_text) {
+                    lastNoteSnippet = contact.last_note_text;
+                }
+                
+                const hasLiveChat = activeChatIds.includes(contact.id);
+                const liveBadgeHTML = hasLiveChat ? '<span class="badge live-chatting-badge">● Live Chat</span>' : '';
+                
+                item.innerHTML = `
+                    <div class="contact-avatar alert-avatar">${initials}</div>
+                    <div class="critical-info">
+                        <div class="critical-header">
+                            <span class="critical-name">${escapeHTML(contact.name)}</span>
+                            <div style="display: flex; gap: 0.35rem; align-items: center;">
+                                <span class="badge badge-atrisk">At Risk</span>
+                                <span class="badge badge-neutral" style="font-size: 0.6rem; border-color: rgba(99,102,241,0.2); background: rgba(99,102,241,0.05); color: var(--color-primary);" title="Proactive Chatbot Outreach Active">🤖 Outreach</span>
+                                <span class="live-badge-container" style="display: flex; align-items: center;">${liveBadgeHTML}</span>
+                            </div>
+                        </div>
+                        <span class="critical-email">${escapeHTML(contact.email)}</span>
+                        <p class="critical-note-preview">${escapeHTML(lastNoteSnippet)}</p>
+                    </div>
+                    <div class="critical-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </div>
+                `;
+                criticalList.appendChild(item);
+            });
+            
+        } catch (err) {
+            console.error(err);
+            document.getElementById('critical-contacts').innerHTML = '<div class="error-text">Failed to load critical accounts.</div>';
+        }
+    }
+
+    async function fetchRecentNotes() {
+        try {
+            const response = await fetch(`/api/notes/recent?limit=5&t=${Date.now()}`);
+            const notes = await response.json();
+            
+            const feed = document.getElementById('recent-notes-feed');
+            feed.innerHTML = '';
+            
+            if (notes.length === 0) {
+                feed.innerHTML = `
+                    <div class="empty-feed-container">
+                        <p>No recent interactions found. Start logging notes in the Client Directory.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            notes.forEach((note, idx) => {
+                const item = document.createElement('div');
+                renderNoteElement(item, note);
+                item.style.animationDelay = `${idx * 0.08}s`;
+                feed.appendChild(item);
+            });
+            
+        } catch (err) {
+            console.error(err);
+            document.getElementById('recent-notes-feed').innerHTML = '<div class="error-text">Failed to load recent feed.</div>';
+        }
+    }
+
+    function prependRecentNote(note, contact) {
+        const feed = document.getElementById('recent-notes-feed');
+        const emptyFeed = feed.querySelector('.empty-feed-container');
+        if (emptyFeed) emptyFeed.remove();
+        
+        const item = document.createElement('div');
+        item.className = 'animate-fade-in-down';
+        
+        // Formulate correct structure for the notes feed object
+        const feedNote = {
+            contact_id: note.contact_id,
+            contact_name: contact.name,
+            contact_email: contact.email,
+            note_text: note.note_text,
+            sentiment_score: note.sentiment_score,
+            date: 'Just now'
+        };
+        
+        renderNoteElement(item, feedNote);
+        
+        feed.insertBefore(item, feed.firstChild);
+        
+        // Keep feed limited to max 5 items
+        while (feed.children.length > 5) {
+            feed.lastChild.remove();
+        }
+    }
+
+    function renderNoteElement(container, note) {
+        let statusClass = 'status-neutral';
+        let emoji = '😐';
+        if (note.sentiment_score >= 0.15) {
+            statusClass = 'status-happy';
+            emoji = '🟢';
+        } else if (note.sentiment_score <= -0.15) {
+            statusClass = 'status-atrisk';
+            emoji = '🔴';
+        }
+        
+        container.className = `feed-item ${statusClass} ` + (container.className || '');
+        
+        let formattedDate = note.date;
+        if (note.date !== 'Just now') {
+            const dateObj = new Date(note.date.replace(' ', 'T') + 'Z');
+            formattedDate = dateObj.toLocaleDateString(undefined, { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        const pct = ((note.sentiment_score + 1) / 2) * 100;
+        
+        container.innerHTML = `
+            <div class="feed-item-header">
+                <a href="/contacts/${note.contact_id}" class="feed-contact-link">${escapeHTML(note.contact_name)}</a>
+                <div class="feed-sentiment-box">
+                    <span class="sentiment-score-num">${note.sentiment_score >= 0 ? '+' : ''}${note.sentiment_score.toFixed(2)}</span>
+                    <span>${emoji}</span>
+                </div>
+            </div>
+            <p class="feed-text">${escapeHTML(note.note_text)}</p>
+            <div class="feed-meta">
+                <span class="feed-date">${formattedDate}</span>
+                <span class="feed-email-sub">${escapeHTML(note.contact_email)}</span>
+            </div>
+            <div class="sentiment-bar-container">
+                <div class="sentiment-bar-indicator" style="width: ${pct}%;"></div>
+            </div>
+        `;
+    }
+
+    function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return parts[0].substring(0, 2).toUpperCase();
+    }
+</script>
+{% endblock %}

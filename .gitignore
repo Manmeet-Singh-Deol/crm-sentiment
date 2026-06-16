@@ -1,0 +1,8 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.system_generated/
+crm.db
+test_crm.db
+admin_credentials.txt

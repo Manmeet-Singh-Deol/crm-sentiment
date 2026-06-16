@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Clients Directory | AURA CRM{% endblock %}
+{% block page_title %}Clients Directory{% endblock %}
+
+{% block content %}
+<div class="directory-container glass-panel">
+    
+    <!-- Controls section: Search, Filter, and Add Button -->
+    <div class="directory-controls">
+        <div class="controls-left">
+            <div class="search-box" style="width: 280px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.637 10.637Z" />
+                </svg>
+                <input type="text" id="directory-search" placeholder="Search by name or email...">
+            </div>
+            
+            <div class="filter-pills" id="directory-filters">
+                <button type="button" class="filter-pill active" data-filter="all">All Clients</button>
+                <button type="button" class="filter-pill" data-filter="happy">🟢 Happy</button>
+                <button type="button" class="filter-pill" data-filter="neutral">😐 Neutral</button>
+                <button type="button" class="filter-pill" data-filter="atrisk">🔴 At Risk</button>
+            </div>
+        </div>
+        
+        <button class="btn btn-primary" id="btn-add-contact">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Contact
+        </button>
+    </div>
+
+    <!-- Contacts list container -->
+    <div class="directory-list" id="directory-list-view">
+        <div class="loading-spinner">Loading clients directory...</div>
+    </div>
+    
+</div>
+
+<!-- Modal for Adding New Contact -->
+<div class="modal-overlay" id="add-contact-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Contact</h3>
+            <button class="modal-close" id="btn-close-modal" aria-label="Close modal">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="18" height="18">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <form id="add-contact-form" class="modal-form">
+            <div class="form-group">
+                <label for="contact-name-input">Full Name</label>
+                <input type="text" id="contact-name-input" placeholder="Enter name" required autocomplete="name">
+            </div>
+            
+            <div class="form-group">
+                <label for="contact-email-input">Email Address</label>
+                <input type="email" id="contact-email-input" placeholder="Enter email address" required autocomplete="email">
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Contact</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const state = {
+        contacts: [],
+        activeFilter: 'all',
+        searchTerm: ''
+    };
+
+    const DOM = {
+        directoryList: document.getElementById('directory-list-view'),
+        directorySearch: document.getElementById('directory-search'),
+        directoryFilters: document.getElementById('directory-filters'),
+        btnAddContact: document.getElementById('btn-add-contact'),
+        btnCloseModal: document.getElementById('btn-close-modal'),
+        btnCancelModal: document.getElementById('btn-cancel-modal'),
+        addContactModal: document.getElementById('add-contact-modal'),
+        addContactForm: document.getElementById('add-contact-form'),
+        contactNameInput: document.getElementById('contact-name-input'),
+        contactEmailInput: document.getElementById('contact-email-input')
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchContacts();
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        DOM.directorySearch.addEventListener('input', (e) => {
+            state.searchTerm = e.target.value.trim().toLowerCase();
+            renderDirectory();
+        });
+
+        DOM.directoryFilters.addEventListener('click', (e) => {
+            const pill = e.target.closest('.filter-pill');
+            if (!pill) return;
+            
+            DOM.directoryFilters.querySelectorAll('.filter-pill').forEach(btn => btn.classList.remove('active'));
+            pill.classList.add('active');
+            
+            state.activeFilter = pill.dataset.filter;
+            renderDirectory();
+        });
+
+        // Modals
+        DOM.btnAddContact.addEventListener('click', () => {
+            DOM.addContactModal.classList.add('active');
+            DOM.contactNameInput.focus();
+        });
+        
+        const closeModal = () => {
+            DOM.addContactModal.classList.remove('active');
+            DOM.addContactForm.reset();
+        };
+        DOM.btnCloseModal.addEventListener('click', closeModal);
+        DOM.btnCancelModal.addEventListener('click', closeModal);
+        
+        // Add Contact Submit
+        DOM.addContactForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = DOM.contactNameInput.value.trim();
+            const email = DOM.contactEmailInput.value.trim();
+            
+            try {
+                const response = await fetch('/api/contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create contact');
+                }
+                
+                showToast(`Contact ${data.name} added successfully!`, 'success');
+                closeModal();
+                
+                // Refresh list and global stats in header
+                await fetchContacts();
+                if (typeof fetchGlobalStats === 'function') {
+                    fetchGlobalStats();
+                }
+                
+                // Auto redirect to new contact details page
+                setTimeout(() => {
+                    window.location.href = `/contacts/${data.id}`;
+                }, 1000);
+                
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        });
+    }
+
+    async function fetchContacts() {
+        try {
+            const response = await fetch(`/api/contacts?t=${Date.now()}`);
+            const data = await response.json();
+            state.contacts = data;
+            renderDirectory();
+        } catch (err) {
+            console.error(err);
+            DOM.directoryList.innerHTML = '<div class="error-text">Failed to fetch contacts directory.</div>';
+        }
+    }
+
+    function renderDirectory() {
+        DOM.directoryList.innerHTML = '';
+        
+        // Filter by text and filter pills
+        let filtered = state.contacts.filter(c => 
+            c.name.toLowerCase().includes(state.searchTerm) || 
+            c.email.toLowerCase().includes(state.searchTerm)
+        );
+        
+        if (state.activeFilter === 'happy') {
+            filtered = filtered.filter(c => c.status === 'Happy');
+        } else if (state.activeFilter === 'neutral') {
+            filtered = filtered.filter(c => c.status === 'Neutral');
+        } else if (state.activeFilter === 'atrisk') {
+            filtered = filtered.filter(c => c.status === 'At Risk');
+        }
+        
+        if (filtered.length === 0) {
+            DOM.directoryList.innerHTML = `
+                <div class="empty-directory-state">
+                    <p>No clients match the current search/filter criteria.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Create grid wrapper
+        const grid = document.createElement('div');
+        grid.className = 'directory-grid';
+        
+        filtered.forEach((contact, idx) => {
+            const card = document.createElement('a');
+            card.href = `/contacts/${contact.id}`;
+            card.className = `directory-contact-card ${contact.status === 'At Risk' ? 'status-at-risk' : ''}`;
+            card.style.animationDelay = `${idx * 0.04}s`;
+            
+            const initials = getInitials(contact.name);
+            const avatarGradient = getAvatarGradient(contact.status);
+            
+            let badgeClass = 'badge-neutral';
+            if (contact.status === 'Happy') badgeClass = 'badge-happy';
+            else if (contact.status === 'At Risk') badgeClass = 'badge-atrisk';
+            
+            let lastNoteSnippet = 'No interactions logged yet.';
+            let relativeTimeStr = '';
+            if (contact.last_note_text) {
+                lastNoteSnippet = contact.last_note_text;
+                relativeTimeStr = formatRelativeTime(contact.last_note_date);
+            }
+            
+            card.innerHTML = `
+                <div class="contact-avatar" style="background: ${avatarGradient};">${initials}</div>
+                <div class="contact-card-info" style="flex-grow: 1; min-width: 0;">
+                    <div class="contact-card-header">
+                        <span class="contact-name">${escapeHTML(contact.name)}</span>
+                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                            <span class="badge ${badgeClass}">${contact.status}</span>
+                            ${contact.status === 'At Risk' ? `<span class="badge badge-neutral" style="font-size: 0.6rem; border-color: rgba(99,102,241,0.2); background: rgba(99,102,241,0.05); color: var(--color-primary);" title="Proactive Chatbot Outreach Active">🤖 Outreach</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="contact-email">${escapeHTML(contact.email)}</span>
+                    <p class="last-note-preview">${escapeHTML(lastNoteSnippet)}</p>
+                    ${relativeTimeStr ? `
+                        <div class="last-note-meta">
+                            <span class="last-note-time">${relativeTimeStr}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+        
+        DOM.directoryList.appendChild(grid);
+    }
+
+    function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return parts[0].substring(0, 2).toUpperCase();
+    }
+    
+    function getAvatarGradient(status) {
+        if (status === 'Happy') return 'linear-gradient(135deg, #10b981, #047857)';
+        if (status === 'At Risk') return 'linear-gradient(135deg, #f43f5e, #be123c)';
+        return 'linear-gradient(135deg, #6366f1, #4338ca)';
+    }
+
+    function formatRelativeTime(dateStr) {
+        if (!dateStr) return '';
+        const utcString = dateStr.endsWith('Z') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+        const date = new Date(utcString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHr = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHr / 24);
+        
+        if (isNaN(date.getTime())) return '';
+        if (diffSec < 60) return 'Just now';
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffHr < 24) return `${diffHr}h ago`;
+        if (diffDay === 1) return 'Yesterday';
+        return `${diffDay}d ago`;
+    }
+</script>
+{% endblock %}
