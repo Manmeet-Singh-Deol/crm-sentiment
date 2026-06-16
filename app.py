@@ -22,8 +22,10 @@ analyzer = SentimentIntensityAnalyzer()
 chatbot_engine = LocalChatbot()
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Initialize Database
+# Initialize Database and Auto-Seed if empty
 db.init_db()
+import populate_db
+populate_db.seed()
 
 # Decorators for Web Views
 def login_required(f):
