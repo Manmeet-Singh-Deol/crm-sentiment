@@ -19,25 +19,29 @@ def seed_default_users(cursor):
     cursor.execute("DELETE FROM users WHERE role = 'admin' AND username != ?", (admin_username,))
 
     cursor.execute("SELECT COUNT(*) FROM users WHERE username = ?", (admin_username,))
-    if cursor.fetchone()[0] == 0:
-        admin_pw_hash = generate_password_hash(admin_password)
+    user_exists = cursor.fetchone()[0] > 0
+    admin_pw_hash = generate_password_hash(admin_password)
+
+    if not user_exists:
         cursor.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", (admin_username, admin_pw_hash, "admin"))
+    else:
+        cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (admin_pw_hash, admin_username))
         
-        # Write to admin_credentials.txt in the same directory
-        creds_path = os.path.join(os.path.dirname(__file__), 'admin_credentials.txt')
-        with open(creds_path, 'w') as f:
-            f.write(f"AURA CRM Admin Setup\n")
-            f.write(f"====================\n")
-            f.write(f"Username: {admin_username}\n")
-            f.write(f"Password: {admin_password}\n")
-            f.write(f"Role: admin\n")
-            
-        print("\n" + "="*60)
-        print("[AURA CRM] SPECIFIED ADMIN CREDENTIALS SEEDED:")
-        print(f"  Username: {admin_username}")
-        print(f"  Password: {admin_password}")
-        print(f"  Saved to: {creds_path}")
-        print("="*60 + "\n")
+    # Write to admin_credentials.txt in the same directory
+    creds_path = os.path.join(os.path.dirname(__file__), 'admin_credentials.txt')
+    with open(creds_path, 'w') as f:
+        f.write(f"AURA CRM Admin Setup\n")
+        f.write(f"====================\n")
+        f.write(f"Username: {admin_username}\n")
+        f.write(f"Password: {admin_password}\n")
+        f.write(f"Role: admin\n")
+        
+    print("\n" + "="*60)
+    print("[AURA CRM] SPECIFIED ADMIN CREDENTIALS SEEDED/UPDATED:")
+    print(f"  Username: {admin_username}")
+    print(f"  Password: {admin_password}")
+    print(f"  Saved to: {creds_path}")
+    print("="*60 + "\n")
 
     cursor.execute("SELECT COUNT(*) FROM users WHERE username = 'staff'")
     if cursor.fetchone()[0] == 0:
