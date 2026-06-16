@@ -403,5 +403,74 @@ class CRMTestCase(unittest.TestCase):
         user = db.get_user_by_username('unique_admin')
         self.assertIsNone(user)
 
+    def test_client_login_flow(self):
+        # 1. Create a client contact in DB
+        contact_id = db.add_contact('Client Tester', 'client@test.com')
+        self.assertIsNotNone(contact_id)
+
+        self.logout()
+
+        # 2. Test client login with valid email
+        response = self.app.post('/login', data={'client_email': 'client@test.com'})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f'/contacts/{contact_id}/chat', response.headers['Location'])
+
+        # Check session is set
+        with self.app.session_transaction() as sess:
+            self.assertEqual(sess.get('user_id'), contact_id)
+            self.assertEqual(sess.get('role'), 'client')
+            self.assertEqual(sess.get('client_email'), 'client@test.com')
+
+        # 3. Test client login with invalid email
+        self.logout()
+        response = self.app.post('/login', data={'client_email': 'nonexistent@test.com'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Client email not found", response.data)
+
+        # 4. Test client access controls
+        # Log back in as the client
+        self.login('Client Tester', 'client', contact_id)
+
+        # Accessing dashboard ('/') redirects client to their chat
+        response = self.app.get('/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f'/contacts/{contact_id}/chat', response.headers['Location'])
+
+        # Accessing directory ('/contacts') redirects client to their chat
+        response = self.app.get('/contacts')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f'/contacts/{contact_id}/chat', response.headers['Location'])
+
+        # Accessing other client's chat returns 403 Forbidden
+        response = self.app.get(f'/contacts/{contact_id + 1}/chat')
+        self.assertEqual(response.status_code, 403)
+
+        # Accessing analytics returns 403 Forbidden
+        response = self.app.get('/analytics')
+        self.assertEqual(response.status_code, 403)
+
+        # 5. Test client API access controls
+        # Accessing other client's notes returns 403
+        response = self.app.get(f'/api/contacts/{contact_id + 1}/notes')
+        self.assertEqual(response.status_code, 403)
+
+        # Accessing own notes is allowed (200)
+        response = self.app.get(f'/api/contacts/{contact_id}/notes')
+        self.assertEqual(response.status_code, 200)
+
+        # Adding note to other client's profile returns 403
+        response = self.app.post(f'/api/contacts/{contact_id + 1}/notes',
+            data=json.dumps({'note_text': 'Trying to spam another client profile'}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 403)
+
+        # Adding note to own profile is allowed (201)
+        response = self.app.post(f'/api/contacts/{contact_id}/notes',
+            data=json.dumps({'note_text': 'This support chatbot is wonderful!'}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 201)
+
 if __name__ == '__main__':
     unittest.main()

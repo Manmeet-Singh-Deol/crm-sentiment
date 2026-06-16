@@ -6,7 +6,6 @@
     <title>Login | AURA CRM</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* Extra styles for login page to center the glassmorphic card */
         .login-wrapper {
             min-height: 100vh;
             display: flex;
@@ -55,7 +54,7 @@
             flex-direction: column;
             align-items: center;
             gap: 0.75rem;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
             text-align: center;
         }
         
@@ -136,44 +135,25 @@
             margin-bottom: 1.25rem;
         }
 
-        .quick-access-section {
-            margin-top: 2rem;
-            border-top: 1px solid var(--border-card);
-            padding-top: 1.5rem;
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 0.65rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            flex: 1;
             text-align: center;
         }
 
-        .quick-access-title {
-            font-size: 0.72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
-            margin-bottom: 0.75rem;
-        }
-
-        .quick-access-btns {
-            display: flex;
-            gap: 0.75rem;
-            justify-content: center;
-        }
-
-        .btn-quick {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-card);
-            color: var(--text-secondary);
-            padding: 0.5rem 0.85rem;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-        }
-
-        .btn-quick:hover {
-            background: rgba(99, 102, 241, 0.08);
-            border-color: rgba(99, 102, 241, 0.2);
-            color: var(--text-primary);
+        .tab-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: white;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
         }
     </style>
 </head>
@@ -203,37 +183,96 @@
             </div>
             {% endif %}
 
-            <form class="login-form" method="POST" action="/login">
+            <!-- Tab switcher -->
+            <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.015); border: 1px solid var(--border-card); padding: 0.35rem; border-radius: 10px; margin-bottom: 1.5rem;">
+                <button type="button" id="btn-tab-admin" class="tab-btn active" onclick="switchTab('admin')">Admin Portal</button>
+                <button type="button" id="btn-tab-staff" class="tab-btn" onclick="switchTab('staff')">Staff Portal</button>
+                <button type="button" id="btn-tab-client" class="tab-btn" onclick="switchTab('client')">Client Portal</button>
+            </div>
+
+            <!-- Staff & Admin Login Form -->
+            <form id="form-staff" class="login-form" method="POST" action="/login">
                 <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" class="form-input" placeholder="Enter username" required autocomplete="username">
+                    <label id="label-username" for="username">Admin Username</label>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="Enter admin username" required autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">Sign In</button>
+                <button type="submit" id="btn-submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">Sign In as Admin</button>
             </form>
 
-            <div style="margin-top: 1.25rem; text-align: center; font-size: 0.82rem; color: var(--text-secondary);">
-                Don't have an account? <a href="/register" style="color: var(--color-primary); text-decoration: none; font-weight: 600; transition: var(--transition-smooth);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary)'">Sign Up</a>
-            </div>
-
-            <div class="quick-access-section">
-                <div class="quick-access-title">Quick Access (Recruiter Sandbox)</div>
-                <div class="quick-access-btns">
-                    <button type="button" class="btn-quick" onclick="autoLogin('{{ admin_username }}', '{{ admin_password }}')">Login as Admin</button>
-                    <button type="button" class="btn-quick" onclick="autoLogin('staff', 'staff123')">Login as Staff</button>
+            <!-- Client Login Form -->
+            <form id="form-client" class="login-form" method="POST" action="/login" style="display: none;">
+                <div class="form-group">
+                    <label for="client_email">Client Email Address</label>
+                    <input type="email" id="client_email" name="client_email" class="form-input" placeholder="Enter your registered email address" autocomplete="email">
                 </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-primary) 100%);">Access Client Support</button>
+            </form>
+
+            <div style="margin-top: 2rem; border-top: 1px solid var(--border-card); padding-top: 1.25rem; text-align: center; font-size: 0.82rem; color: var(--text-secondary);">
+                Don't have a staff account? <a href="/register" style="color: var(--color-primary); text-decoration: none; font-weight: 600; transition: var(--transition-smooth);" onmouseover="this.style.color='var(--color-accent)'" onmouseout="this.style.color='var(--color-primary)'">Sign Up</a>
             </div>
         </div>
     </div>
 
     <script>
-        function autoLogin(username, password) {
-            document.getElementById('username').value = username;
-            document.getElementById('password').value = password;
-            document.querySelector('.login-form').submit();
+        function switchTab(type) {
+            const btnAdmin = document.getElementById('btn-tab-admin');
+            const btnStaff = document.getElementById('btn-tab-staff');
+            const btnClient = document.getElementById('btn-tab-client');
+            const formStaff = document.getElementById('form-staff');
+            const formClient = document.getElementById('form-client');
+            
+            const labelUsername = document.getElementById('label-username');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const clientEmail = document.getElementById('client_email');
+            const btnSubmit = document.getElementById('btn-submit');
+            
+            // Remove active class from all tab buttons
+            btnAdmin.classList.remove('active');
+            btnStaff.classList.remove('active');
+            btnClient.classList.remove('active');
+            
+            if (type === 'admin') {
+                btnAdmin.classList.add('active');
+                formStaff.style.display = 'flex';
+                formClient.style.display = 'none';
+                
+                labelUsername.textContent = 'Admin Username';
+                usernameInput.placeholder = 'Enter admin username';
+                btnSubmit.textContent = 'Sign In as Admin';
+                
+                // Toggle required tags
+                usernameInput.required = true;
+                passwordInput.required = true;
+                clientEmail.required = false;
+            } else if (type === 'staff') {
+                btnStaff.classList.add('active');
+                formStaff.style.display = 'flex';
+                formClient.style.display = 'none';
+                
+                labelUsername.textContent = 'Staff Username';
+                usernameInput.placeholder = 'Enter staff username';
+                btnSubmit.textContent = 'Sign In as Staff';
+                
+                // Toggle required tags
+                usernameInput.required = true;
+                passwordInput.required = true;
+                clientEmail.required = false;
+            } else {
+                btnClient.classList.add('active');
+                formStaff.style.display = 'none';
+                formClient.style.display = 'flex';
+                
+                // Toggle required tags
+                usernameInput.required = false;
+                passwordInput.required = false;
+                clientEmail.required = true;
+            }
         }
     </script>
 </body>

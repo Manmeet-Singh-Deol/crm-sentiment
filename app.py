@@ -31,6 +31,16 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return redirect(url_for('login_view'))
+            
+        # Restrict clients from viewing staff dashboard/directory/analytics
+        if session.get('role') == 'client':
+            if request.endpoint == 'contact_chat_view':
+                target_id = kwargs.get('contact_id')
+                if session.get('user_id') != target_id:
+                    return render_template('403.html'), 403
+            elif request.endpoint not in ['logout_view']:
+                return redirect(url_for('contact_chat_view', contact_id=session.get('user_id')))
+                
         return f(*args, **kwargs)
     return decorated_function
 
@@ -50,6 +60,24 @@ def api_login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return jsonify({'error': 'Unauthorized. Please log in.'}), 401
+            
+        # Restrict client API scopes
+        if session.get('role') == 'client':
+            if request.endpoint == 'chatbot_message':
+                target_id = kwargs.get('contact_id')
+                if session.get('user_id') != target_id:
+                    return jsonify({'error': 'Forbidden.'}), 403
+            elif request.endpoint == 'get_notes':
+                target_id = kwargs.get('contact_id')
+                if session.get('user_id') != target_id:
+                    return jsonify({'error': 'Forbidden.'}), 403
+            elif request.endpoint == 'add_note':
+                target_id = kwargs.get('contact_id')
+                if session.get('user_id') != target_id:
+                    return jsonify({'error': 'Forbidden.'}), 403
+            elif request.endpoint not in ['logout_view']:
+                return jsonify({'error': 'Forbidden. Staff privileges required.'}), 403
+                
         return f(*args, **kwargs)
     return decorated_function
 
@@ -66,21 +94,37 @@ def api_admin_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login_view():
     if 'user_id' in session:
+        if session.get('role') == 'client':
+            return redirect(url_for('contact_chat_view', contact_id=session.get('user_id')))
         return redirect(url_for('dashboard_view'))
         
     error = None
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        
-        user = db.authenticate_user(username, password)
-        if user:
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['role'] = user['role']
-            return redirect(url_for('dashboard_view'))
+        client_email = request.form.get('client_email', '').strip()
+        if client_email:
+            # Client Login
+            contact = db.get_contact_by_email(client_email)
+            if contact:
+                session['user_id'] = contact['id']
+                session['username'] = contact['name']
+                session['role'] = 'client'
+                session['client_email'] = contact['email']
+                return redirect(url_for('contact_chat_view', contact_id=contact['id']))
+            else:
+                error = "Client email not found. Please contact support or register as staff."
         else:
-            error = "Invalid username or password"
+            # Staff Login
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
+            
+            user = db.authenticate_user(username, password)
+            if user:
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['role'] = user['role']
+                return redirect(url_for('dashboard_view'))
+            else:
+                error = "Invalid username or password"
             
     admin_user, admin_pw = db.get_admin_setup_credentials()
     return render_template('login.html', error=error, admin_username=admin_user, admin_password=admin_pw)

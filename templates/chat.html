@@ -3,6 +3,7 @@
 {% block title %}Support Chat | {{ contact.name }}{% endblock %}
 
 {% block page_title %}
+{% if session.get('role') != 'client' %}
 <div class="breadcrumb-header">
     <a href="/contacts/{{ contact.id }}" class="back-link">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="16" height="16">
@@ -11,6 +12,7 @@
         Return to Client Profile
     </a>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block content %}
