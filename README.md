@@ -1,5 +1,7 @@
 # AURA CRM & Proactive Support Portal
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-blue?style=for-the-badge&logo=render&logoColor=white)](https://aura-crm-j2vl.onrender.com)
+
 A premium, modern customer relationship management (CRM) application featuring real-time natural language sentiment analysis, role-based access controls (RBAC), offline stateful chatbot diagnostics, and real-time dashboard synchronization using WebSockets.
 
 Designed to run **100% offline** with **zero external API dependencies** (no paid subscriptions, no Pusher, no OpenAI keys needed), making it lightweight, extremely fast, and instantly testable.
