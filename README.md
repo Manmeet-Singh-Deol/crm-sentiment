@@ -107,15 +107,15 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser. You will be
 
 ## 🔑 Demo Credentials
 
-On initial setup, the database seeds default tester credentials:
+On initial setup, the database seeds default tester credentials (you can customize these in production using environment variables like `ADMIN_USERNAME` and `ADMIN_PASSWORD`):
 
 | Portal | Username / Email | Password | Role / Details |
 | :--- | :--- | :--- | :--- |
-| **Admin** | `MANMEET` | `1234567890` | Full administrative capabilities |
+| **Admin** | `MANMEET` (or custom `ADMIN_USERNAME`) | `1234567890` (or custom `ADMIN_PASSWORD`) | Full administrative capabilities |
 | **Staff** | `staff` | `staff123` | Operational access (directory & metrics) |
 | **Client**| *(Select a seeded email)* | *(No Password)* | Email-only support chat access |
 
-*Note: Credentials can also be viewed in the auto-generated `admin_credentials.txt` file.*
+*Note: For local testing, credentials can also be viewed in the auto-generated `admin_credentials.txt` file.*
 
 ---
 

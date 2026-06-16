@@ -11,9 +11,9 @@ def get_db_connection():
     return conn
 
 def seed_default_users(cursor):
-    # Set custom requested admin username and password
-    admin_username = "MANMEET"
-    admin_password = "1234567890"
+    # Set custom requested admin username and password from environment variables or use default
+    admin_username = os.environ.get("ADMIN_USERNAME", "MANMEET")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "1234567890")
 
     # Delete any legacy admin role accounts that don't match the new custom account
     cursor.execute("DELETE FROM users WHERE role = 'admin' AND username != ?", (admin_username,))
