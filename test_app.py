@@ -403,6 +403,43 @@ class CRMTestCase(unittest.TestCase):
         user = db.get_user_by_username('unique_admin')
         self.assertIsNone(user)
 
+        # 6. Test client registration success: new client user
+        response = self.app.post('/register', data={
+            'client_name': 'New Register Client',
+            'client_email': 'new_reg_client@test.com'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login', response.headers['Location'])
+        
+        # Verify contact exists in the database
+        contact = db.get_contact_by_email('new_reg_client@test.com')
+        self.assertIsNotNone(contact)
+        self.assertEqual(contact['name'], 'New Register Client')
+
+        # 7. Test client registration failure: existing email address
+        response = self.app.post('/register', data={
+            'client_name': 'Duplicate Client',
+            'client_email': 'new_reg_client@test.com'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Email address is already registered", response.data)
+
+        # 8. Test client registration failure: missing name
+        response = self.app.post('/register', data={
+            'client_name': '',
+            'client_email': 'some_email@test.com'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Full Name is required", response.data)
+
+        # 9. Test client registration failure: malformed email
+        response = self.app.post('/register', data={
+            'client_name': 'Test User',
+            'client_email': 'invalid_email'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Invalid email format", response.data)
+
     def test_client_login_flow(self):
         # 1. Create a client contact in DB
         contact_id = db.add_contact('Client Tester', 'client@test.com')

@@ -183,6 +183,27 @@
             color: var(--color-accent);
             text-decoration: underline;
         }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 0.65rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: white;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -196,7 +217,7 @@
                     </svg>
                 </div>
                 <h1>Create Account</h1>
-                <p>Register unique admin or staff login credentials</p>
+                <p>Register unique staff or client support credentials</p>
             </div>
 
             {% if error %}
@@ -205,7 +226,14 @@
             </div>
             {% endif %}
 
-            <form class="login-form" method="POST" action="/register">
+            <!-- Tab switcher -->
+            <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.015); border: 1px solid var(--border-card); padding: 0.35rem; border-radius: 10px; margin-bottom: 1.5rem;">
+                <button type="button" id="btn-tab-staff" class="tab-btn active" onclick="switchTab('staff')">Staff Portal</button>
+                <button type="button" id="btn-tab-client" class="tab-btn" onclick="switchTab('client')">Client Portal</button>
+            </div>
+
+            <!-- Staff Form -->
+            <form id="form-staff" class="login-form" method="POST" action="/register">
                 <div class="form-group">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username" class="form-input" placeholder="Choose a unique username" required autocomplete="username" value="{{ username or '' }}">
@@ -223,7 +251,20 @@
                     <label>Assigned Role</label>
                     <input type="text" class="form-input" value="Staff Account (Access directory & log notes)" disabled style="opacity: 0.65; cursor: not-allowed; background: rgba(255,255,255,0.01);">
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">Create Account</button>
+                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">Create Staff Account</button>
+            </form>
+
+            <!-- Client Form -->
+            <form id="form-client" class="login-form" method="POST" action="/register" style="display: none;">
+                <div class="form-group">
+                    <label for="client_name">Full Name</label>
+                    <input type="text" id="client_name" name="client_name" class="form-input" placeholder="Enter your full name" autocomplete="name" value="{{ client_name or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="client_email">Email Address</label>
+                    <input type="email" id="client_email" name="client_email" class="form-input" placeholder="Enter your email address" autocomplete="email" value="{{ client_email or '' }}">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%; background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-primary) 100%);">Register Client Account</button>
             </form>
 
             <div class="login-footer">
@@ -231,5 +272,55 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function switchTab(type) {
+            const btnStaff = document.getElementById('btn-tab-staff');
+            const btnClient = document.getElementById('btn-tab-client');
+            const formStaff = document.getElementById('form-staff');
+            const formClient = document.getElementById('form-client');
+            
+            const staffUser = document.getElementById('username');
+            const staffPass = document.getElementById('password');
+            const staffPassConfirm = document.getElementById('password_confirm');
+            const clientName = document.getElementById('client_name');
+            const clientEmail = document.getElementById('client_email');
+            
+            if (type === 'staff') {
+                btnStaff.classList.add('active');
+                btnClient.classList.remove('active');
+                formStaff.style.display = 'flex';
+                formClient.style.display = 'none';
+                
+                // Toggle required tags
+                staffUser.required = true;
+                staffPass.required = true;
+                staffPassConfirm.required = true;
+                clientName.required = false;
+                clientEmail.required = false;
+            } else {
+                btnStaff.classList.remove('active');
+                btnClient.classList.add('active');
+                formStaff.style.display = 'none';
+                formClient.style.display = 'flex';
+                
+                // Toggle required tags
+                staffUser.required = false;
+                staffPass.required = false;
+                staffPassConfirm.required = false;
+                clientName.required = true;
+                clientEmail.required = true;
+            }
+        }
+
+        // On load, check if there was a client email or name submitted (which means validation error happened on client tab)
+        document.addEventListener('DOMContentLoaded', () => {
+            const clientEmailVal = "{{ client_email or '' }}";
+            const clientNameVal = "{{ client_name or '' }}";
+            if (clientEmailVal || clientNameVal) {
+                switchTab('client');
+            }
+        });
+    </script>
 </body>
 </html>

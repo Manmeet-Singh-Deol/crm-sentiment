@@ -142,34 +142,60 @@ def register_view():
     error = None
     username = ''
     role = 'staff'
+    client_name = ''
+    client_email = ''
     
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        password_confirm = request.form.get('password_confirm', '')
-        role = request.form.get('role', 'staff').strip()
-        
-        if not username:
-            error = "Username is required"
-        elif not password:
-            error = "Password is required"
-        elif password != password_confirm:
-            error = "Passwords do not match"
-        elif role != 'staff':
-            error = "Admin registration is restricted. Only Staff accounts can be registered."
-        else:
-            # Check if user already exists
-            existing_user = db.get_user_by_username(username)
-            if existing_user:
-                error = "Username is already taken"
+        client_email = request.form.get('client_email', '').strip()
+        if client_email or 'client_name' in request.form:
+            # Client Registration
+            client_name = request.form.get('client_name', '').strip()
+            
+            if not client_name:
+                error = "Full Name is required"
+            elif not client_email:
+                error = "Email address is required"
+            elif '@' not in client_email or '.' not in client_email:
+                error = "Invalid email format"
             else:
-                user_id = db.add_user(username, password, role)
-                if user_id:
-                    return redirect(url_for('login_view', success="Account created successfully! Please log in."))
+                # Check if contact email already exists
+                existing = db.get_contact_by_email(client_email)
+                if existing:
+                    error = "Email address is already registered"
                 else:
-                    error = "Failed to create account. Please try again."
+                    contact_id = db.add_contact(client_name, client_email)
+                    if contact_id:
+                        return redirect(url_for('login_view', success="Client account created successfully! Please log in."))
+                    else:
+                        error = "Failed to create client account. Please try again."
+        else:
+            # Staff Registration
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            password_confirm = request.form.get('password_confirm', '')
+            role = request.form.get('role', 'staff').strip()
+            
+            if not username:
+                error = "Username is required"
+            elif not password:
+                error = "Password is required"
+            elif password != password_confirm:
+                error = "Passwords do not match"
+            elif role != 'staff':
+                error = "Admin registration is restricted. Only Staff accounts can be registered."
+            else:
+                # Check if user already exists
+                existing_user = db.get_user_by_username(username)
+                if existing_user:
+                    error = "Username is already taken"
+                else:
+                    user_id = db.add_user(username, password, role)
+                    if user_id:
+                        return redirect(url_for('login_view', success="Account created successfully! Please log in."))
+                    else:
+                        error = "Failed to create account. Please try again."
                     
-    return render_template('register.html', error=error, username=username, role=role)
+    return render_template('register.html', error=error, username=username, role=role, client_name=client_name, client_email=client_email)
 
 @app.route('/')
 @login_required
