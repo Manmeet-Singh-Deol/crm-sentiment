@@ -5,11 +5,9 @@ from pymongo.errors import DuplicateKeyError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # MongoDB Connection Configuration
-# Set MONGO_URI environment variable on Render / locally to override the default
-MONGO_URI = os.environ.get(
-    "MONGO_URI",
-    "mongodb+srv://Manmeet:7017354872@cluster0.70jqrfq.mongodb.net/?appName=Cluster0"
-)
+# MONGO_URI must be set as an environment variable (e.g., on Render or locally)
+# Falls back to local MongoDB for development only
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("MONGO_DB_NAME", "aura_crm")
 
 _client = None

@@ -9,3 +9,5 @@ services:
         value: 10000
       - key: MONGO_URI
         sync: false
+      - key: SECRET_KEY
+        generateValue: true

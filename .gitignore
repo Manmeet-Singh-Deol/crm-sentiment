@@ -3,3 +3,4 @@ __pycache__/
 crm.db
 test_crm.db
 *.pyc
+admin_credentials.txt

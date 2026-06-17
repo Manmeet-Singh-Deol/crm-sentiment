@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from flask.ctx import RequestContext
 
@@ -17,7 +18,7 @@ from flask_socketio import SocketIO, emit
 from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = 'aura-secret-key-for-session-signing-12345'
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 analyzer = SentimentIntensityAnalyzer()
 chatbot_engine = LocalChatbot()
 socketio = SocketIO(app, cors_allowed_origins="*")
