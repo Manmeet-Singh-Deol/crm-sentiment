@@ -4,7 +4,7 @@
 
 A premium, modern customer relationship management (CRM) application featuring real-time natural language sentiment analysis, role-based access controls (RBAC), offline stateful chatbot diagnostics, and real-time dashboard synchronization using WebSockets.
 
-Designed to run **100% offline** with **zero external API dependencies** (no paid subscriptions, no Pusher, no OpenAI keys needed), making it lightweight, extremely fast, and instantly testable.
+Powered by **MongoDB Atlas** (cloud-hosted NoSQL) for persistent data storage, with **zero paid API dependencies** (no Pusher, no OpenAI keys needed), making it lightweight, extremely fast, and instantly testable.
 
 ---
 
@@ -26,7 +26,7 @@ Designed to run **100% offline** with **zero external API dependencies** (no pai
 *   **Backend Framework**: Flask (Python 3.10+)
 *   **Real-Time Communication**: Flask-SocketIO (WebSocket protocol)
 *   **Natural Language Processing**: VADER Sentiment Analysis (`vaderSentiment`)
-*   **Database Engine**: SQLite3 (native relational storage, cascade deletion supported)
+*   **Database Engine**: MongoDB Atlas (cloud-hosted NoSQL via PyMongo, aggregation pipelines, auto-increment IDs)
 *   **Authentication & Hashing**: Werkzeug Hashing Utilities (PBKDF2-SHA256)
 *   **Frontend Design System**: Vanilla CSS3 + Modern Typography (Inter & Outfit via Google Fonts) with Glassmorphic visual style.
 
@@ -38,7 +38,7 @@ Designed to run **100% offline** with **zero external API dependencies** (no pai
 crm-sentiment/
 ├── app.py                     # Flask-SocketIO Server, routes, and decorator middlewares
 ├── chatbot.py                 # Stateful local chatbot engine, VADER rules, and escalations
-├── db.py                      # SQLite database operations, schema initializations, and seeders
+├── db.py                      # MongoDB database operations (PyMongo), collection indexes, and seeders
 ├── populate_db.py             # Script to seed sample client contacts and dummy history logs
 ├── requirements.txt           # Project dependencies
 ├── render.yaml                # Render blueprint configuration (optional)
@@ -91,12 +91,17 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-### 3. Database Initialization & Seeding
-Run the population script to create the SQLite schema and seed mock contacts:
+### 3. MongoDB Atlas Setup
+This project uses **MongoDB Atlas** (free tier). Set your connection string:
 ```bash
-python populate_db.py
+# Windows PowerShell
+$env:MONGO_URI = "mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?appName=Cluster0"
+
+# macOS / Linux
+export MONGO_URI="mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?appName=Cluster0"
 ```
-This generates the `crm.db` database and seeds default accounts.
+
+The database collections, indexes, and sample data are **auto-created on first run** — no manual setup needed.
 
 ### 4. Running the Application
 Start the Flask development server:
@@ -134,7 +139,7 @@ Expected Output:
 ```text
 .........
 ----------------------------------------------------------------------
-Ran 9 tests in 4.728s
+Ran 9 tests in ~28s
 
 OK
 ```
@@ -150,4 +155,9 @@ Deploying AURA CRM to Render is free and easy:
 4. Configure the Web Service settings:
     *   **Build Command**: `pip install -r requirements.txt`
     *   **Start Command**: `python app.py`
-5. Render will automatically build the package and deploy the live URL.
+5. Under **Environment Variables**, add:
+    *   `MONGO_URI` → Your MongoDB Atlas connection string
+    *   *(Optional)* `ADMIN_USERNAME` and `ADMIN_PASSWORD` to customize admin credentials
+6. Render will automatically build the package and deploy the live URL.
+
+> **Note**: Data is stored in MongoDB Atlas cloud, so it **persists across deployments** — no data loss on redeploy.
