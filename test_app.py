@@ -1,20 +1,27 @@
 import unittest
 import os
-import tempfile
 import json
 import db
 
-# Override database path for testing
-TEST_DB_PATH = os.path.join(os.path.dirname(__file__), 'test_crm.db')
-db.DATABASE_PATH = TEST_DB_PATH
+# Override to use a separate test database (never touches production data)
+db.DB_NAME = 'aura_crm_test'
+# Force re-initialization so the test database is used
+db._db = None
+db._client = None
 
-# Now import app, so it uses the test database path when initializing
+# Now import app, so it uses the test database when initializing
 from app import app
 
+
 class CRMTestCase(unittest.TestCase):
-    
+
     def setUp(self):
-        # Set up test database
+        # Drop all collections in test database for a clean slate
+        database = db.get_db()
+        for coll_name in database.list_collection_names():
+            database[coll_name].drop()
+
+        # Re-initialize (creates indexes + seeds admin/staff users)
         db.init_db()
         self.app = app.test_client()
         self.app.testing = True
@@ -31,12 +38,10 @@ class CRMTestCase(unittest.TestCase):
             sess.clear()
 
     def tearDown(self):
-        # Close connection and delete database file
-        if os.path.exists(TEST_DB_PATH):
-            try:
-                os.remove(TEST_DB_PATH)
-            except PermissionError:
-                pass # SQLite might lock the file, clean up will happen on next run or os exit
+        # Drop all test collections after each test
+        database = db.get_db()
+        for coll_name in database.list_collection_names():
+            database[coll_name].drop()
 
     def test_contact_operations(self):
         # 1. Test empty database listing
@@ -94,7 +99,6 @@ class CRMTestCase(unittest.TestCase):
         self.assertEqual(len(notes), 0)
 
         # 2. Add a positive note
-        # "Customer was extremely happy with the project delivery!" -> expected high positive score
         response = self.app.post(f'/api/contacts/{contact_id}/notes',
             data=json.dumps({'note_text': 'Customer was extremely happy with the project delivery!'}),
             content_type='application/json'
@@ -106,7 +110,6 @@ class CRMTestCase(unittest.TestCase):
         self.assertEqual(res_data['contact']['status'], 'Happy')
 
         # 3. Add an extremely negative note
-        # "I am highly frustrated and angry. The product is broken and support is useless!" -> negative score
         response = self.app.post(f'/api/contacts/{contact_id}/notes',
             data=json.dumps({'note_text': 'I am highly frustrated and angry. The product is broken and support is useless!'}),
             content_type='application/json'
